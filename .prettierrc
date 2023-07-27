@@ -3,9 +3,5 @@
 	"tabWidth": 4,
 	"useTabs": true,
 	"arrowParens": "avoid",
-	"printWidth": 120,
-	"importOrder": ["<THIRD_PARTY_MODULES>", "^@thebroomstack/(.*)$", "^[./]"],
-	"importOrderSeparation": true,
-	"importOrderSortSpecifiers": true,
-	"importOrderParserPlugins": ["decorators-legacy", "typescript", "jsx"]
+	"printWidth": 120
 }

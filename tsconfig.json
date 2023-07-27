@@ -1,16 +1,23 @@
 {
+	"include": ["lib/**/*.ts"],
 	"compilerOptions": {
-		"allowSyntheticDefaultImports": true,
-		"esModuleInterop": true,
-		"target": "ESNext",
-		"module": "ESNext",
+		"rootDir": ".",
+		"sourceMap": true,
 		"moduleResolution": "node",
-		"jsxImportSource": "solid-js",
-		"jsx": "preserve",
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true,
+		"importHelpers": true,
+		"target": "ES2020",
+		"module": "ES2020",
+		"skipLibCheck": true,
+		"skipDefaultLibCheck": true,
+		"baseUrl": ".",
+		"forceConsistentCasingInFileNames": true,
 		"strict": true,
-		"baseUrl": "./",
-		"paths": {
-			"~/*": ["./src/*"]
-		}
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"outDir": "dist/out-tsc",
+		"declaration": true,
+		"lib": ["ES2020", "DOM"]
 	}
 }

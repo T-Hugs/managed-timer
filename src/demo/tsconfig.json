@@ -1,0 +1,24 @@
+{
+	"compilerOptions": {
+		"jsx": "react-jsx",
+		"allowJs": false,
+		"esModuleInterop": true,
+		"allowSyntheticDefaultImports": true,
+		"strict": true,
+		"lib": ["ES2020", "DOM"],
+		"rootDir": ".",
+		"sourceMap": true,
+		"declaration": true,
+		"moduleResolution": "node",
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true,
+		"importHelpers": true,
+		"target": "ES2020",
+		"module": "CommonJS",
+		"skipLibCheck": true,
+		"skipDefaultLibCheck": true,
+		"baseUrl": ".",
+		"types": ["vite/client", "vitest"]
+	},
+	"include": ["./**/*.ts", "./**/*.tsx"]
+}
