@@ -704,6 +704,9 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 	) {
 		super(timerOptions);
 		this.completeTime = timeMs;
+		if (onComplete) {
+			this.registerCompleteCallbacks([onComplete]);
+		}
 		this.registerCallbacks([
 			{
 				type: "checkpoint",
@@ -711,9 +714,8 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 				callback: (timer: SuperCountdown) => {
 					this.pause();
 					this.setTimeRemaining(0);
-					onComplete?.(timer);
 				},
-				name: "countdown-complete",
+				name: "countdown-complete-internal",
 			},
 		]);
 	}
@@ -726,6 +728,21 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 		if (!this.isDone()) {
 			super.unpause();
 		}
+	}
+
+	/**
+	 * Register callbacks to execute when the timer completes.
+	 * @param callbacks
+	 */
+	public registerCompleteCallbacks(callbacks: ((timer: SuperCountdown) => void)[]) {
+		this.checkDisposed();
+		const internalCallbacks = callbacks.map(callback => ({
+			type: "checkpoint" as const,
+			timeMs: this.completeTime,
+			callback: callback,
+			name: `countdown-complete-${this.callbackIdSeeds["checkpoint"]}`,
+		}));
+		this.registerCallbacks(internalCallbacks);
 	}
 
 	public removeCallbacks(callbackNames: string[]) {
