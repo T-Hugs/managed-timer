@@ -505,6 +505,15 @@ abstract class SuperTimerBase<TTimerType> {
 	}
 
 	/**
+	 * Remove all callbacks unless the name of the callback begins with "!".
+	 */
+	public removeAllCallbacks() {
+		this.checkDisposed();
+		const callbacksToRemove = this.callbacks.filter(c => !c.name.startsWith("!"));
+		this.removeCallbacks(callbacksToRemove.map(c => c.name));
+	}
+
+	/**
 	 * Unpause the timer. Any registered callbacks are resumed.
 	 * @returns
 	 */
