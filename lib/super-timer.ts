@@ -20,7 +20,7 @@ export interface SuperTimerCallbackBase<TTimerType> {
 	 * The type of callback to execute. Checkpoint callbacks run at
 	 * a specific amount of elapsed time, while tick callbacks run
 	 * repeatedly at a specified interval.
-	 * 
+	 *
 	 * "checkpoint" and "checkpoint-once" callbacks behave the same,
 	 * but a "checkpoint-once" callback will be removed after it is
 	 * executed. A "checkpoint" callback may run multiple times if
@@ -723,7 +723,7 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 		super(timerOptions);
 		this.completeTime = timeMs;
 		if (onComplete) {
-			this.registerCompleteCallbacks([onComplete]);
+			this.registerCompleteCallback(onComplete);
 		}
 		this.registerCallbacks([
 			{
@@ -733,7 +733,7 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 					this.pause();
 					this.setTimeRemaining(0);
 				},
-				name: "countdown-complete-internal",
+				name: "!countdown-complete-internal",
 			},
 		]);
 	}
@@ -749,18 +749,21 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 	}
 
 	/**
-	 * Register callbacks to execute when the timer completes.
-	 * @param callbacks
+	 * Register a callback to execute when the timer completes.
+	 *
+	 * @param callback
+	 * @param once If true, the callback will be removed after it is executed.
 	 */
-	public registerCompleteCallbacks(callbacks: ((timer: SuperCountdown) => void)[]) {
+	public registerCompleteCallback(callback: (timer: SuperCountdown) => void, once = false) {
 		this.checkDisposed();
-		const internalCallbacks = callbacks.map(callback => ({
-			type: "checkpoint" as const,
+		const type: "checkpoint" | "checkpoint-once" = once ? "checkpoint-once" : "checkpoint";
+		const internalCallback = {
+			type,
+			callback,
 			timeMs: this.completeTime,
-			callback: callback,
 			name: `countdown-complete-${this.callbackIdSeeds["checkpoint"]}`,
-		}));
-		this.registerCallbacks(internalCallbacks);
+		};
+		this.registerCallbacks([internalCallback]);
 	}
 
 	public removeCallbacks(callbackNames: string[]) {
