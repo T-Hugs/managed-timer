@@ -19,7 +19,12 @@ export interface SuperTimerCallbackBase<TTimerType> {
 	/**
 	 * The type of callback to execute. Checkpoint callbacks run at
 	 * a specific amount of elapsed time, while tick callbacks run
-	 * at a specified interval.
+	 * repeatedly at a specified interval.
+	 * 
+	 * "checkpoint" and "checkpoint-once" callbacks behave the same,
+	 * but a "checkpoint-once" callback will be removed after it is
+	 * executed. A "checkpoint" callback may run multiple times if
+	 * the time is adjusted such that the checkpoint is passed again.
 	 *
 	 * "tick" and "tick-reset" are very similar. The difference is
 	 * how they are handled when the timer is paused and then
@@ -34,7 +39,7 @@ export interface SuperTimerCallbackBase<TTimerType> {
 	 * next execution of the callback will be after 600ms for "tick"
 	 * and after 1000ms for "tick-reset".
 	 */
-	type: "checkpoint" | "tick" | "tick-reset";
+	type: "checkpoint" | "checkpoint-once" | "tick" | "tick-reset";
 
 	/**
 	 * When or how often to run the callback. For "checkpoint"
@@ -286,6 +291,7 @@ abstract class SuperTimerBase<TTimerType> {
 		for (const callback of callbacks) {
 			switch (callback.type) {
 				case "checkpoint":
+				case "checkpoint-once":
 					this.handleCheckpointCallback(callback);
 					break;
 
@@ -355,6 +361,9 @@ abstract class SuperTimerBase<TTimerType> {
 
 		const timeout = this.lib.setTimeout(() => {
 			this.createEventAndInvokeCallback(callback, eventType);
+			if (callback.type === "checkpoint-once") {
+				this.removeCallbacks([callback.name]);
+			}
 		}, msUntilCheckpoint);
 		this.timeouts.set(callback.name, timeout);
 	}
