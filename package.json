@@ -36,7 +36,8 @@
 		"docgen": "typedoc --out ./docs/api ./lib/super-timer.ts",
 		"build": "tsc -p .",
 		"build-demo": "vite build",
-		"dev": "npm run build && vite serve"
+		"dev": "npm run build && vite serve",
+		"publish": "npm run build && npm publish --access public"
 	},
 	"repository": {
 		"type": "git",
