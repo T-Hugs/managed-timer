@@ -1,6 +1,6 @@
 {
 	"name": "@trevorsg/super-timer",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"description": "A utility for managing timers, stopwatches, countdowns, and other time-based events.",
 	"directories": {
 		"doc": "docs"
@@ -36,6 +36,7 @@
 		"docgen": "typedoc --out ./docs/api ./lib/super-timer.ts",
 		"build": "tsc -p .",
 		"build-demo": "vite build",
+		"build-all": "npm run build && npm run build-demo && npm run docgen",
 		"dev": "npm run build && vite serve"
 	},
 	"repository": {

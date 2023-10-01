@@ -6,7 +6,18 @@ export type PartialProp<T, k extends keyof T> = T[k] extends object
 	? Partial<Omit<T, k>> & { [P in k]: Partial<T[k]> }
 	: never;
 
+// shim requestAnimationFrame and cancelAnimationFrame
 let timerId = 1;
+if (typeof globalThis.requestAnimationFrame === "undefined" || typeof globalThis.cancelAnimationFrame === "undefined") {
+	// @ts-ignore
+	globalThis.requestAnimationFrame = function (callback) {
+		return setTimeout(() => callback(Date.now()), 16);
+	};
+
+	globalThis.cancelAnimationFrame = function (id) {
+		clearTimeout(id);
+	};
+}
 
 /**
  * A callback that can be registered to run on various timer events.
