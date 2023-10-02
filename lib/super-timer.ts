@@ -689,7 +689,7 @@ abstract class SuperTimerBase<TTimerType> {
 		// If the timer is paused, we just return the total
 		// elapsed time
 		if (!this.unpausedAt) {
-			return this.elapsedMs;
+			return Math.round(this.elapsedMs);
 		}
 
 		// Otherwise, we need to add the time since the last
