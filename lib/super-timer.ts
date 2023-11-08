@@ -781,12 +781,12 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 		super.removeCallbacks(callbackNames);
 	}
 
-	public addTime(ms: number) {
-		super.addTime(-ms, false);
+	public addTime(ms: number, suppressCallbacks = false) {
+		super.addTime(-ms, suppressCallbacks);
 	}
 
-	public setTimeRemaining(ms: number) {
-		super.setTime(this.completeTime - ms, false);
+	public setTimeRemaining(ms: number, suppressCallbacks = false) {
+		super.setTime(this.completeTime - ms, suppressCallbacks);
 	}
 
 	public getTimeRemaining() {
