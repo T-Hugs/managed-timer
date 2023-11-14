@@ -82,6 +82,7 @@ export interface SuperTimerCallbackBase<TTimerType> {
 	 * - Time is adjusted manually, via setTime or addTime
 	 * - The timer is paused
 	 * - The timer is unpaused
+	 * - The timer's speed multiplier is changed
 	 *
 	 * @default false
 	 */
@@ -100,6 +101,29 @@ export interface SuperTimerCallbackBase<TTimerType> {
 	 * @default false
 	 */
 	logExecutions?: boolean;
+
+	/**
+	 * When a timer is paused and unpaused, the internal mechanisms that
+	 * keep track of elapsed time can be off by a few milliseconds. This
+	 * becomes obvious when "tick" callbacks are executed at a round
+	 * interval, such as every second. Over time with several pauses and
+	 * unpauses, these ticks will drift past the 1000-millisecond intervals
+	 * of elapsed time.
+	 *
+	 * Because of this, there is a mechanism to compensate for this drift.
+	 * When a timer is resumed, the interval will be forced to lock into
+	 * the original schedule of ticks.
+	 *
+	 * The potential downside is that after a timer is unpaused, the first
+	 * execution of a tick callback may run slightly (a few milliseconds)
+	 * earlier than expected.
+	 *
+	 * To disable this compensation mechanism, set this value to true.
+	 * This setting is only applicable to "tick" callbacks.
+	 *
+	 * @default false
+	 */
+	disableTickDriftCompensation?: boolean;
 }
 
 export type SuperTimerCallback = SuperTimerCallbackBase<SuperTimer>;
@@ -111,7 +135,7 @@ export type InternalCallback<TTimerType> = RequiredProp<
 	"name" | "requireAnimationFrame"
 > & {
 	lastExecutionMs: number;
-	tickTimeRemaining?: number;
+	registeredAt: number;
 };
 
 export interface TimerShims {
@@ -183,7 +207,8 @@ export type TimerEventType =
 	| "tick"
 	| "setTime"
 	| "addTime"
-	| "reset";
+	| "reset"
+	| "setSpeed";
 
 export interface TimerEvent {
 	/**
@@ -279,6 +304,7 @@ abstract class SuperTimerBase<TTimerType> {
 	protected callbackNames: Record<string, Set<string>> = {};
 	protected lib: TimerShims;
 	protected disposed: boolean = false;
+	protected speed: number;
 
 	constructor(options: SuperTimerOptionsBase<TTimerType> = {}) {
 		this.id = timerId++;
@@ -292,6 +318,7 @@ abstract class SuperTimerBase<TTimerType> {
 		this.registerCallbacks(defaultedOptions.callbacks);
 		this.lib = defaultOptions.shims;
 		this.pausedAt = this.lib.performance.now();
+		this.speed = defaultedOptions.timerSpeedMultiplier;
 	}
 
 	protected startCallbacks(callbacks: InternalCallback<TTimerType>[]) {
@@ -322,6 +349,7 @@ abstract class SuperTimerBase<TTimerType> {
 	protected createEventAndInvokeCallback(
 		callback: InternalCallback<TTimerType>,
 		eventType: TimerEventType | undefined,
+		sourceCallback?: InternalCallback<TTimerType>,
 	) {
 		const elapsedMs = this.getElapsedMs();
 		if (eventType) {
@@ -334,12 +362,12 @@ abstract class SuperTimerBase<TTimerType> {
 		}
 		if (callback.requireAnimationFrame) {
 			const rafId = this.lib.requestAnimationFrame(() => {
-				callback.lastExecutionMs = elapsedMs;
+				(sourceCallback ?? callback).lastExecutionMs = elapsedMs;
 				this.executeCallback(callback);
 			});
 			this.rafs.set(callback.name, rafId);
 		} else {
-			callback.lastExecutionMs = elapsedMs;
+			(sourceCallback ?? callback).lastExecutionMs = elapsedMs;
 			this.executeCallback(callback);
 		}
 	}
@@ -365,13 +393,14 @@ abstract class SuperTimerBase<TTimerType> {
 	protected handleCheckpointCallback(
 		callback: InternalCallback<TTimerType>,
 		eventType: TimerEventType = "checkpoint",
+		sourceCallback?: InternalCallback<TTimerType>,
 	) {
 		const elapsedMs = this.getElapsedMs();
-		const msUntilCheckpoint = callback.timeMs - elapsedMs;
+		const msUntilCheckpoint = (callback.timeMs - elapsedMs) / this.speed;
 		if (msUntilCheckpoint <= 0) return;
 
 		const timeout = this.lib.setTimeout(() => {
-			this.createEventAndInvokeCallback(callback, eventType);
+			this.createEventAndInvokeCallback(callback, eventType, sourceCallback);
 			if (callback.type === "checkpoint-once") {
 				this.removeCallbacks([callback.name]);
 			}
@@ -391,16 +420,23 @@ abstract class SuperTimerBase<TTimerType> {
 		} else {
 			const interval = this.lib.setInterval(() => {
 				this.createEventAndInvokeCallback(callback, "tick");
-			}, callback.timeMs);
+			}, callback.timeMs / this.speed);
 			this.intervals.set(callback.name, interval);
 		}
 	}
 
 	protected handleTickCallback(callback: InternalCallback<TTimerType>) {
 		const elapsedMs = this.getElapsedMs();
+		let nextExecutionTime = callback.lastExecutionMs + callback.timeMs;
+		if (callback.disableTickDriftCompensation !== true) {
+			const fullIntervals = Math.floor((elapsedMs - callback.registeredAt) / callback.timeMs);
+			const idealNextExecutionTime = callback.registeredAt + (fullIntervals + 1) * callback.timeMs;
+			if (nextExecutionTime - idealNextExecutionTime > 0) {
+				nextExecutionTime = idealNextExecutionTime;
+			}
+		}
 
-		const firstExecutionTime = callback.lastExecutionMs + callback.timeMs;
-		if (firstExecutionTime > elapsedMs && firstExecutionTime < elapsedMs + callback.timeMs) {
+		if (nextExecutionTime > elapsedMs && nextExecutionTime < elapsedMs + callback.timeMs) {
 			// If we have paused, the first execution will be a one-off, handled as a "checkpoint"
 			// callback. After that, it becomes a regular tick callback.
 			this.handleCheckpointCallback(
@@ -410,9 +446,10 @@ abstract class SuperTimerBase<TTimerType> {
 						this.handleTickResetCallback(callback);
 						callback.callback(timer);
 					},
-					timeMs: firstExecutionTime,
+					timeMs: nextExecutionTime,
 				},
 				"tick",
+				callback,
 			);
 		} else {
 			this.handleTickResetCallback(callback);
@@ -472,6 +509,7 @@ abstract class SuperTimerBase<TTimerType> {
 					`${callback.type} callback name must be unique: ${callback.name}. Either provide a unique name or omit the name.`,
 				);
 			}
+			const elapsedMs = this.getElapsedMs();
 			const internalCallback: InternalCallback<TTimerType> = {
 				name: callbackName,
 				callback: callback.callback,
@@ -480,7 +518,9 @@ abstract class SuperTimerBase<TTimerType> {
 				requireAnimationFrame: callback.requireAnimationFrame ?? false,
 				executeOnUpdate: callback.executeOnUpdate ?? false,
 				logExecutions: callback.logExecutions ?? false,
-				lastExecutionMs: this.getElapsedMs(),
+				lastExecutionMs: elapsedMs,
+				registeredAt: elapsedMs,
+				disableTickDriftCompensation: callback.disableTickDriftCompensation ?? false,
 			};
 			this.callbacks.push(internalCallback);
 			callbacksToStart.push(internalCallback);
@@ -586,7 +626,7 @@ abstract class SuperTimerBase<TTimerType> {
 		this.pausedAt = this.lib.performance.now();
 
 		// Add this segment to the total elapsed time
-		const elapsedSinceLastPause = this.pausedAt - this.unpausedAt;
+		const elapsedSinceLastPause = (this.pausedAt - this.unpausedAt) * this.speed;
 		this.elapsedMs += elapsedSinceLastPause;
 		this.unpausedAt = undefined;
 
@@ -639,6 +679,10 @@ abstract class SuperTimerBase<TTimerType> {
 	 * to subtract time. If suppressCallbacks is false, if this update
 	 * causes the timer to move forward through any checkpoint callbacks,
 	 * they will be executed.
+	 *
+	 * This method adds "real" time to the timer, meaning, if a speed
+	 * multiplier other than 1.0 is set, the effective time added will be
+	 * ms / speedMultiplier.
 	 * @param ms
 	 * @param suppressCallbacks
 	 */
@@ -694,7 +738,7 @@ abstract class SuperTimerBase<TTimerType> {
 
 		// Otherwise, we need to add the time since the last
 		// pause to the total elapsed time
-		const elapsedSinceLastPause = this.lib.performance.now() - this.unpausedAt;
+		const elapsedSinceLastPause = (this.lib.performance.now() - this.unpausedAt) * this.speed;
 		return Math.round(this.elapsedMs + elapsedSinceLastPause);
 	}
 
@@ -709,6 +753,33 @@ abstract class SuperTimerBase<TTimerType> {
 			isPaused: !this.unpausedAt,
 			history,
 		};
+	}
+
+	/**
+	 * Sets the timer speed multiplier. Calling this function takes effect
+	 * immediately, rescheduling any future callbacks to honor the new speed.
+	 * @param speed
+	 */
+	public setSpeedMultiplier(speedMultiplier: number) {
+		if (speedMultiplier !== this.speed) {
+			// If the timer is running, we need to pause, change the speed, and resume.
+			// This will cause callbacks to be rescheduled for the new speed.
+			let shouldUnpause = false;
+			if (this.unpausedAt) {
+				this.pause();
+				shouldUnpause = true;
+			}
+			this.speed = speedMultiplier;
+			this.history.events.push({
+				date: new this.lib.Date(),
+				event: "setSpeed",
+				elapsedMs: this.elapsedMs,
+				data: speedMultiplier,
+			});
+			if (shouldUnpause) {
+				this.unpause();
+			}
+		}
 	}
 }
 

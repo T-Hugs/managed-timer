@@ -79,6 +79,7 @@ function StopwatchDemo() {
 	const [elapsedMs, setElapsedMs] = useState(0);
 	const [isTick, setIsTick] = useState(true);
 	const [tickType, setTickType] = useState<"standard" | "reset">("standard");
+	const [timerSpeed, setTimerSpeed] = useState<number>(1);
 	const timer = useTimer({
 		callbacks: [
 			{
@@ -119,6 +120,12 @@ function StopwatchDemo() {
 		setTickType((event.target as HTMLInputElement).value as "standard" | "reset");
 	}, []);
 
+	const onTimerSpeedChange = useCallback((event: React.ChangeEvent) => {
+		const newSpeed = Number((event.target as HTMLInputElement).value);
+		setTimerSpeed(newSpeed);
+		timer.setSpeedMultiplier(newSpeed);
+	}, []);
+
 	useEffect(() => {
 		timer.removeCallbacks([tickCallbackName]);
 		timer.registerCallbacks([
@@ -137,12 +144,73 @@ function StopwatchDemo() {
 		<div className="space-y-2">
 			<h3>Stopwatch</h3>
 			<div>{(elapsedMs / 1000).toFixed(2)}</div>
+
 			<div className="space-x-2">
 				<button onClick={onStartClick}>Start</button>
 				<button onClick={onStopClick}>Stop</button>
 				<button onClick={onAddTimeClick}>+5sec</button>
 				<button onClick={onSubtractTimeClick}>-5sec</button>
 				<button onClick={onResetClick}>Reset</button>
+			</div>
+			<div className="flex space-x-1">
+				<strong className="pr-4" title="See documentation below">
+					Timer speed:
+				</strong>
+				<input
+					id="tenthSpeed"
+					type="radio"
+					name="timer-speed"
+					value="0.1"
+					onChange={onTimerSpeedChange}
+					checked={timerSpeed == 0.1}
+				/>
+				<label htmlFor="tenthSpeed" className="pr-4">
+					0.1x
+				</label>
+				<input
+					id="halfSpeed"
+					type="radio"
+					name="timer-speed"
+					value="0.5"
+					onChange={onTimerSpeedChange}
+					checked={timerSpeed === 0.5}
+				/>
+				<label htmlFor="halfSpeed" className="pr-4">
+					0.5x
+				</label>
+				<input
+					id="normalSpeed"
+					type="radio"
+					name="timer-speed"
+					value="1.0"
+					onChange={onTimerSpeedChange}
+					checked={timerSpeed === 1.0}
+				/>
+				<label htmlFor="normalSpeed" className="pr-4">
+					1.0x (real time)
+				</label>
+				<input
+					id="doubleSpeed"
+					type="radio"
+					name="timer-speed"
+					value="2.0"
+					onChange={onTimerSpeedChange}
+					checked={timerSpeed === 2.0}
+				/>
+				<label htmlFor="doubleSpeed" className="pr-4">
+					2.0x
+				</label>
+				<input
+					id="tenXSpeed"
+					type="radio"
+					name="timer-speed"
+					value="10.0"
+					onChange={onTimerSpeedChange}
+					checked={timerSpeed === 10.0}
+				/>
+				<label htmlFor="tenXSpeed" className="pr-4">
+					10x
+				</label>
 			</div>
 			<div className="flex justify-between">
 				<div
@@ -189,7 +257,7 @@ function StopwatchDemo() {
 	);
 }
 
-function CountdownDemo2() {
+function CountdownDemo() {
 	const [countdownTime, setCountdownTime] = useState(10000);
 
 	const { countdown, isComplete, timeRemaining } = useCountdown(
@@ -246,7 +314,7 @@ function TimerDemo() {
 	return (
 		<div className="space-y-4">
 			<StopwatchDemo />
-			<CountdownDemo2 />
+			<CountdownDemo />
 		</div>
 	);
 }
@@ -427,16 +495,15 @@ export function App() {
 							<h5>
 								<code>registerCallbacks(callbacks: SuperTimerCallback[])</code>
 							</h5>
+							<p>Register the given callbacks. Works the same as specifying them in the constructor</p>
+							<h5>
+								<code>removeCallbacks(callbackNames: string[])</code>
+							</h5>
 							<p>
-								Register the given callbacks. Works the same as specifying them in the constructor
-								<h5>
-									<code>removeCallbacks(callbackNames: string[])</code>
-								</h5>
-								<p>
-									Remove the callbacks with the given names. Any
-									timeouts/intervals/requestAnimationFrames for these callbacks will be canceled.
-								</p>
+								Remove the callbacks with the given names. Any timeouts/intervals/requestAnimationFrames
+								for these callbacks will be canceled.
 							</p>
+
 							<h5>
 								<code>getElapsedMs()</code>
 							</h5>
