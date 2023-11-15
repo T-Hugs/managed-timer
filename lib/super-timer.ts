@@ -400,10 +400,10 @@ abstract class SuperTimerBase<TTimerType> {
 		if (msUntilCheckpoint <= 0) return;
 
 		const timeout = this.lib.setTimeout(() => {
-			this.createEventAndInvokeCallback(callback, eventType, sourceCallback);
 			if (callback.type === "checkpoint-once") {
 				this.removeCallbacks([callback.name]);
 			}
+			this.createEventAndInvokeCallback(callback, eventType, sourceCallback);
 		}, msUntilCheckpoint);
 		this.timeouts.set(callback.name, timeout);
 	}
@@ -843,7 +843,7 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 			type,
 			callback,
 			timeMs: this.completeTime,
-			name: `countdown-complete-${this.callbackIdSeeds["checkpoint"]}`,
+			name: `countdown-complete-${this.callbackIdSeeds["checkpoint"]++}`,
 		};
 		this.registerCallbacks([internalCallback]);
 	}
