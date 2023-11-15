@@ -815,7 +815,8 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 
 					// Complete callbacks are run outside of the callback system of SuperTimer
 					// to ensure that they get run even when the timer is paused upon completion.
-					for (const completeCallback of this.completeCallbacks) {
+					const completeCallbacksSnapshot = [...this.completeCallbacks];
+					for (const completeCallback of completeCallbacksSnapshot) {
 						completeCallback.callback(timer);
 						if (completeCallback.once) {
 							this.completeCallbacks.delete(completeCallback);
