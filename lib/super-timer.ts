@@ -796,7 +796,8 @@ export class SuperTimer extends SuperTimerBase<SuperTimer> {
 }
 
 export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
-	public completeTime: number;
+	private completeTime: number;
+	private completeCallbacks: Set<{ callback: (timer: SuperCountdown) => void; once: boolean }> = new Set();
 	constructor(
 		timeMs: number,
 		onComplete?: (timer: SuperCountdown) => void,
@@ -804,9 +805,6 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 	) {
 		super(timerOptions);
 		this.completeTime = timeMs;
-		if (onComplete) {
-			this.registerCompleteCallback(onComplete);
-		}
 		this.registerCallbacks([
 			{
 				type: "checkpoint",
@@ -814,10 +812,22 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 				callback: (timer: SuperCountdown) => {
 					this.pause();
 					this.setTimeRemaining(0);
+
+					// Complete callbacks are run outside of the callback system of SuperTimer
+					// to ensure that they get run even when the timer is paused upon completion.
+					for (const completeCallback of this.completeCallbacks) {
+						completeCallback.callback(timer);
+						if (completeCallback.once) {
+							this.completeCallbacks.delete(completeCallback);
+						}
+					}
 				},
 				name: "!countdown-complete-internal",
 			},
 		]);
+		if (onComplete) {
+			this.registerCompleteCallback(onComplete);
+		}
 	}
 
 	protected executeCallback(callback: InternalCallback<SuperCountdown>) {
@@ -838,18 +848,7 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 	 */
 	public registerCompleteCallback(callback: (timer: SuperCountdown) => void, once = false) {
 		this.checkDisposed();
-		const type: "checkpoint" | "checkpoint-once" = once ? "checkpoint-once" : "checkpoint";
-		const internalCallback = {
-			type,
-			callback,
-			timeMs: this.completeTime,
-			name: `countdown-complete-${this.callbackIdSeeds["checkpoint"]++}`,
-		};
-		this.registerCallbacks([internalCallback]);
-	}
-
-	public removeCallbacks(callbackNames: string[]) {
-		super.removeCallbacks(callbackNames);
+		this.completeCallbacks.add({ callback, once });
 	}
 
 	public addTime(ms: number, suppressCallbacks = false) {
