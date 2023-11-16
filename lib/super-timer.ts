@@ -318,7 +318,7 @@ abstract class SuperTimerBase<TTimerType> {
 		this.registerCallbacks(defaultedOptions.callbacks);
 		this.lib = defaultOptions.shims;
 		this.pausedAt = this.lib.performance.now();
-		this.speed = defaultedOptions.timerSpeedMultiplier;
+		this.speed = defaultedOptions.timerSpeedMultiplier || 1.0;
 	}
 
 	protected startCallbacks(callbacks: InternalCallback<TTimerType>[]) {

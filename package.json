@@ -1,6 +1,6 @@
 {
 	"name": "@trevorsg/super-timer",
-	"version": "1.5.4",
+	"version": "1.5.5",
 	"description": "A utility for managing timers, stopwatches, countdowns, and other time-based events.",
 	"directories": {
 		"doc": "docs"
