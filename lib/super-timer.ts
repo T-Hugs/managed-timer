@@ -811,7 +811,7 @@ export class SuperCountdown extends SuperTimerBase<SuperCountdown> {
 				timeMs: timeMs,
 				callback: (timer: SuperCountdown) => {
 					this.pause();
-					this.setTimeRemaining(0);
+					this.setTimeRemaining(0, true);
 
 					// Complete callbacks are run outside of the callback system of SuperTimer
 					// to ensure that they get run even when the timer is paused upon completion.
