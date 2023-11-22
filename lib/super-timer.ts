@@ -305,6 +305,7 @@ abstract class SuperTimerBase<TTimerType> {
 	protected lib: TimerShims;
 	protected disposed: boolean = false;
 	protected speed: number;
+	protected name: string;
 
 	constructor(options: SuperTimerOptionsBase<TTimerType> = {}) {
 		this.id = timerId++;
@@ -319,6 +320,7 @@ abstract class SuperTimerBase<TTimerType> {
 		this.lib = defaultOptions.shims;
 		this.pausedAt = this.lib.performance.now();
 		this.speed = defaultedOptions.timerSpeedMultiplier || 1.0;
+		this.name = defaultedOptions.name;
 	}
 
 	protected startCallbacks(callbacks: InternalCallback<TTimerType>[]) {
@@ -484,8 +486,7 @@ abstract class SuperTimerBase<TTimerType> {
 
 	protected checkDisposed() {
 		if (this.disposed) {
-			debugger;
-			throw new Error("Timer has been disposed and cannot be used.");
+			throw new Error(`Timer "${this.name}" has been disposed and cannot be used.`);
 		}
 	}
 
@@ -559,6 +560,7 @@ abstract class SuperTimerBase<TTimerType> {
 				this.callbacks.splice(index, 1);
 			}
 			this.callbackNames["checkpoint"]?.delete(name);
+			this.callbackNames["checkpoint-once"]?.delete(name);
 			this.callbackNames["tick"]?.delete(name);
 			this.callbackNames["tick-reset"]?.delete(name);
 		}
@@ -614,12 +616,12 @@ abstract class SuperTimerBase<TTimerType> {
 	 * Pause the timer. Any registered callbacks are paused.
 	 * @returns
 	 */
-	public pause(): void {
+	public pause(): boolean {
 		this.checkDisposed();
 
 		// No-op if already paused
 		if (!this.unpausedAt) {
-			return;
+			return false;
 		}
 
 		// Save the last time paused.
@@ -641,6 +643,8 @@ abstract class SuperTimerBase<TTimerType> {
 
 		// Run any callbacks that need to execute on update
 		this.executeUpdateCallbacks();
+
+		return true;
 	}
 
 	/**
@@ -654,24 +658,25 @@ abstract class SuperTimerBase<TTimerType> {
 
 	private _addTime(ms: number, suppressCallbacks: boolean) {
 		this.clearTimeouts(true);
-		const oldElapsed = this.getElapsedMs();
-		this.elapsedMs += ms;
+        const wasPaused = this.pause();
+        const oldElapsed = this.getElapsedMs();
+        this.elapsedMs += ms;
+        const sortedCallbacks = this.callbacks.filter(c => c.type === "checkpoint").sort((a, b) => a.timeMs - b.timeMs);
+        if (!suppressCallbacks) {
+            // Sort to ensure that checkpoints are executed in the correct order
+            for (const callback of sortedCallbacks) {
+                if (callback.timeMs > oldElapsed && callback.timeMs <= oldElapsed + ms) {
+                    this.createEventAndInvokeCallback(callback, "checkpoint");
+                }
+            }
+        }
+        // Manually run any callbacks that include the flag to run when time is adjusted
+        this.executeUpdateCallbacks();
 
-		const sortedCallbacks = this.callbacks.filter(c => c.type === "checkpoint").sort((a, b) => a.timeMs - b.timeMs);
-
-		if (!suppressCallbacks) {
-			// Sort to ensure that checkpoints are executed in the correct order
-			for (const callback of sortedCallbacks) {
-				if (callback.timeMs > oldElapsed && callback.timeMs <= oldElapsed + ms) {
-					this.createEventAndInvokeCallback(callback, "checkpoint");
-				}
-			}
-		}
-
-		// Manually run any callbacks that include the flag to run when time is adjusted
-		this.executeUpdateCallbacks();
-
-		this.startCallbacks(sortedCallbacks);
+        // Check that the timer is not running in case the callback started it already.
+        if (!this.unpausedAt && wasPaused) {
+            this.unpause();
+        }
 	}
 
 	/**
