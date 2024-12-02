@@ -579,7 +579,7 @@ abstract class SuperTimerBase<TTimerType> {
 	 * Unpause the timer. Any registered callbacks are resumed.
 	 * @returns
 	 */
-	public unpause(): void {
+	public unpause(suppressUpdateCallbacks = false): void {
 		this.checkDisposed();
 
 		// No-op if already unpaused
@@ -616,7 +616,7 @@ abstract class SuperTimerBase<TTimerType> {
 	 * Pause the timer. Any registered callbacks are paused.
 	 * @returns
 	 */
-	public pause(): boolean {
+	public pause(suppressUpdateCallbacks = false): boolean {
 		this.checkDisposed();
 
 		// No-op if already paused
@@ -642,7 +642,9 @@ abstract class SuperTimerBase<TTimerType> {
 		this.clearTimeouts();
 
 		// Run any callbacks that need to execute on update
-		this.executeUpdateCallbacks();
+		if (!suppressUpdateCallbacks) {
+			this.executeUpdateCallbacks();
+		}
 
 		return true;
 	}
@@ -658,25 +660,25 @@ abstract class SuperTimerBase<TTimerType> {
 
 	private _addTime(ms: number, suppressCallbacks: boolean) {
 		this.clearTimeouts(true);
-        const wasPaused = this.pause();
-        const oldElapsed = this.getElapsedMs();
-        this.elapsedMs += ms;
-        const sortedCallbacks = this.callbacks.filter(c => c.type === "checkpoint").sort((a, b) => a.timeMs - b.timeMs);
-        if (!suppressCallbacks) {
-            // Sort to ensure that checkpoints are executed in the correct order
-            for (const callback of sortedCallbacks) {
-                if (callback.timeMs > oldElapsed && callback.timeMs <= oldElapsed + ms) {
-                    this.createEventAndInvokeCallback(callback, "checkpoint");
-                }
-            }
-        }
-        // Manually run any callbacks that include the flag to run when time is adjusted
-        this.executeUpdateCallbacks();
+		const wasPaused = this.pause(true);
+		const oldElapsed = this.getElapsedMs();
+		this.elapsedMs += ms;
+		const sortedCallbacks = this.callbacks.filter(c => c.type === "checkpoint").sort((a, b) => a.timeMs - b.timeMs);
+		if (!suppressCallbacks) {
+			// Sort to ensure that checkpoints are executed in the correct order
+			for (const callback of sortedCallbacks) {
+				if (callback.timeMs > oldElapsed && callback.timeMs <= oldElapsed + ms) {
+					this.createEventAndInvokeCallback(callback, "checkpoint");
+				}
+			}
+		}
+		// Manually run any callbacks that include the flag to run when time is adjusted
+		this.executeUpdateCallbacks();
 
-        // Check that the timer is not running in case the callback started it already.
-        if (!this.unpausedAt && wasPaused) {
-            this.unpause();
-        }
+		// Check that the timer is not running in case the callback started it already.
+		if (!this.unpausedAt && wasPaused) {
+			this.unpause(true);
+		}
 	}
 
 	/**
